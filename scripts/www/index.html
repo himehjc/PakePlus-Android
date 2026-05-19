@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes">
+<title>工作量记录</title>
+<!-- PWA 安装支持 -->
+<link rel="manifest" href="data:application/json,{"name":"工作量记录","short_name":"工作量","start_url":".","display":"standalone","background_color":"#eef0f4","theme_color":"#1a1a2e","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%231a1a2e'/%3E%3Ctext x='96' y='132' font-size='100' font-weight='bold' fill='%23ffd200' text-anchor='middle'%3EW%3C/text%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="工作量">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: #eef0f4; color: #1a1a2e;
+    min-height: 100vh; padding-bottom: 66px; user-select: none;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #2a2a4a 100%);
+    color: #fff; padding: 14px 14px 12px; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 14px rgba(0,0,0,0.12);
+  }
+  .date-nav { display: flex; align-items: center; justify-content: space-between; }
+  .date-nav .arrow {
+    width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.08);
+    border: none; color: #fff; font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background 0.2s;
+  }
+  .date-nav .arrow:active { background: rgba(255,255,255,0.22); }
+  .date-nav .date-display { text-align: center; flex: 1; padding: 0 6px; }
+  .date-nav .date-display .date-main { font-size: 16px; font-weight: 600; letter-spacing: 0.5px; }
+  .date-nav .date-display .date-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .date-nav .btn-today {
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+    color: #fff; padding: 5px 12px; border-radius: 14px; font-size: 11px;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0; margin-left: 4px;
+    transition: background 0.2s;
+  }
+  .date-nav .btn-today:active { background: rgba(255,255,255,0.28); }
+
+  /* ===== Canvas ===== */
+  .canvas-wrap { padding: 10px 10px 0; max-width: 520px; margin: 0 auto; }
+  .canvas {
+    position: relative; background: #fff;
+    border-radius: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+    padding: 10px 0; overflow: hidden;
+  }
+
+  /* ===== Rows ===== */
+  .rows {
+    display: flex; flex-direction: column;
+    min-height: 456px;
+  }
+  .row {
+    display: flex; align-items: center;
+    border-bottom: 1px solid #eef0f2;
+    padding: 0 6px;
+  }
+  .row:last-child { border-bottom: none; }
+  .row-1 { flex: 5; } .row-2 { flex: 3; } .row-3 { flex: 2; } .row-4 { flex: 1; }
+
+  /* ===== Items ===== */
+  .item {
+    flex: 1; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; padding: 3px;
+  }
+  .item + .item { border-left: 1px solid #f2f4f6; }
+  .item-name { font-weight: 600; color: #2a2a3a; line-height: 1.2; }
+  .item-name .point { font-weight: 400; color: #aaa; }
+
+  .item-input-wrap { width: 100%; }
+  .item-input-wrap input {
+    width: 100%; max-width: 100%;
+    border: 2px solid #e4e6ea; border-radius: 6px;
+    text-align: center; font-weight: 600;
+    color: #1a1a2e; background: #f5f6f8;
+    outline: none; transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+    -moz-appearance: textfield; padding: 0 2px;
+  }
+  .item-input-wrap input::-webkit-outer-spin-button,
+  .item-input-wrap input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .item-input-wrap input:focus {
+    border-color: #4a6cf7; background: #fff;
+    box-shadow: 0 0 0 3px rgba(74,108,247,0.10);
+  }
+  .item-input-wrap input.has-value {
+    border-color: #4a6cf7; background: #f0f4ff;
+  }
+
+  .item-score { font-weight: 700; color: #4a6cf7; font-variant-numeric: tabular-nums; }
+  .item-score.zero { color: #d0d2d6; }
+
+  /* ===== Row sizing ===== */
+  .row-1 .item-name    { font-size: 19px; }
+  .row-1 .item-name .point { font-size: 14px; }
+  .row-1 .item-input-wrap { padding: 6px 0 4px; }
+  .row-1 .item-input-wrap input { height: 46px; font-size: 21px; max-width: 92px; margin: 0 auto; }
+  .row-1 .item-score   { font-size: 19px; }
+
+  .row-2 .item-name    { font-size: 15px; }
+  .row-2 .item-name .point { font-size: 11px; }
+  .row-2 .item-input-wrap { padding: 5px 0 3px; }
+  .row-2 .item-input-wrap input { height: 38px; font-size: 17px; max-width: 76px; margin: 0 auto; }
+  .row-2 .item-score   { font-size: 15px; }
+
+  .row-3 .item-name    { font-size: 13px; }
+  .row-3 .item-name .point { font-size: 10px; }
+  .row-3 .item-input-wrap { padding: 4px 0 2px; }
+  .row-3 .item-input-wrap input { height: 33px; font-size: 15px; max-width: 60px; margin: 0 auto; }
+  .row-3 .item-score   { font-size: 13px; }
+
+  .row-4 .item-name    { font-size: 10px; }
+  .row-4 .item-name .point { font-size: 9px; }
+  .row-4 .item-input-wrap { padding: 3px 0 2px; }
+  .row-4 .item-input-wrap input { height: 28px; font-size: 13px; max-width: 48px; margin: 0 auto; }
+  .row-4 .item-score   { font-size: 10px; }
+
+  /* ===== Save Footer ===== */
+  .save-area { padding: 10px; }
+  .save-btn-wrap {
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+    padding: 10px 14px; display: flex;
+    align-items: center; justify-content: space-between;
+  }
+  .btn-save {
+    background: linear-gradient(135deg, #4a6cf7, #6c5ce7);
+    color: #fff; border: none; padding: 9px 24px; border-radius: 22px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; gap: 5px;
+    transition: opacity 0.2s, transform 0.12s, box-shadow 0.2s;
+    box-shadow: 0 3px 12px rgba(74,108,247,0.25);
+  }
+  .btn-save:active { opacity: 0.9; transform: scale(0.97); box-shadow: 0 1px 6px rgba(74,108,247,0.3); }
+
+  .btn-reset {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #f5f6f8; border: 1.5px solid #e4e6ea;
+    color: #999; font-size: 20px; font-weight: 400;
+    cursor: pointer; display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0;
+    transition: all 0.2s; line-height: 1;
+  }
+  .btn-reset:active { background: #ffe0e0; border-color: #ff8a8a; color: #ff6b6b; transform: rotate(180deg); }
+
+  .save-total { display: flex; align-items: center; gap: 6px; }
+  .save-total .st-label { font-size: 13px; color: #999; }
+  .save-total .st-score { font-size: 24px; font-weight: 700; color: #f7971e; font-variant-numeric: tabular-nums; }
+  .save-total .st-unit { font-size: 13px; color: #999; }
+
+  /* ===== Bottom Nav ===== */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 56px;
+    background: #fff; display: flex; align-items: center;
+    justify-content: space-around;
+    box-shadow: 0 -1px 10px rgba(0,0,0,0.07); z-index: 200;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .bottom-nav button {
+    background: none; border: none; padding: 6px 24px;
+    font-size: 13px; color: #b0b2b8; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 1px; transition: color 0.2s; white-space: nowrap;
+  }
+  .bottom-nav button .nav-icon { font-size: 20px; line-height: 1; }
+  .bottom-nav button.active { color: #4a6cf7; font-weight: 600; }
+  .bottom-nav button:active { opacity: 0.6; }
+
+  /* ===== History Modal ===== */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.45); z-index: 300;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .modal-overlay.show { display: block; }
+  .modal-content {
+    position: absolute; bottom: 0; left: 0; right: 0; background: #fff;
+    border-radius: 22px 22px 0 0; max-height: 82vh; overflow-y: auto;
+    padding: 18px 16px 34px; animation: slideUp 0.3s ease-out;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px; padding-bottom: 10px; border-bottom: 1px solid #eee;
+  }
+  .modal-header h2 { font-size: 18px; font-weight: 600; }
+  .modal-close { background: none; border: none; font-size: 22px; color: #bbb; cursor: pointer; padding: 4px; line-height: 1; }
+
+  /* Month summary */
+  .month-summary { margin: 10px 0 14px; display: flex; flex-direction: column; gap: 8px; }
+  .month-block {
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(135deg, #f8f9ff, #f0f4ff);
+    border-radius: 10px; padding: 10px 14px;
+    border: 1px solid #e8ecf8;
+  }
+  .month-block .mb-label { font-size: 15px; font-weight: 600; color: #333; }
+  .month-block .mb-total { font-size: 18px; font-weight: 700; color: #f7971e; }
+  .month-block .mb-unit { font-size: 12px; color: #999; margin-left: 2px; }
+
+  .history-section-title {
+    font-size: 13px; font-weight: 600; color: #999;
+    padding: 6px 0 4px; margin-top: 4px;
+  }
+
+  .history-list { list-style: none; }
+  .history-item {
+    display: flex; align-items: center; padding: 11px 0;
+    border-bottom: 1px solid #f5f5f7; cursor: pointer; transition: background 0.15s;
+  }
+  .history-item:active { background: #fafbfd; border-radius: 8px; }
+  .history-item .h-date { font-size: 15px; font-weight: 500; color: #1a1a2e; flex: 0 0 100px; }
+  .history-item .h-weekday { font-size: 12px; color: #aaa; flex: 0 0 44px; }
+  .history-item .h-total { font-size: 17px; font-weight: 700; color: #f7971e; margin-left: auto; }
+  .history-item .h-action { font-size: 12px; color: #4a6cf7; margin-left: 6px; }
+  .history-empty { text-align: center; padding: 40px 0; color: #bbb; font-size: 14px; }
+
+  .detail-view { display: none; }
+  .detail-view.show { display: block; }
+  .detail-view .back-btn { background: none; border: none; color: #4a6cf7; font-size: 14px; padding: 4px 0; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 12px; }
+  .detail-view .detail-date { font-size: 16px; font-weight: 600; margin-bottom: 10px; color: #1a1a2e; }
+  .detail-view .detail-items { list-style: none; }
+  .detail-view .detail-items li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f2; font-size: 14px; }
+  .detail-view .detail-items li .d-score { font-weight: 600; color: #4a6cf7; }
+  .detail-view .detail-total { margin-top: 12px; padding-top: 12px; border-top: 2px solid #1a1a2e; display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; }
+  .detail-view .detail-total .dt-value { color: #f7971e; }
+
+  .clear-area { text-align: center; padding: 20px 0 4px; }
+  .clear-btn { background: none; border: 1px solid #e4e6ea; color: #c0c2c8; padding: 6px 18px; border-radius: 16px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+  .clear-btn:active { border-color: #ff6b6b; color: #ff6b6b; }
+
+  /* ===== Toast ===== */
+  .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: rgba(0,0,0,0.78); color: #fff; padding: 10px 22px; border-radius: 10px; font-size: 14px; z-index: 999; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="date-nav">
+      <button class="arrow" id="prevDay">◀</button>
+      <div class="date-display">
+        <div class="date-main" id="dateMain"></div>
+        <div class="date-sub" id="dateSub"></div>
+      </div>
+      <button class="arrow" id="nextDay">▶</button>
+      <button class="btn-today" id="btnToday">今天</button>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <div class="canvas">
+      <div class="rows">
+        <div class="row row-1">
+          <div class="item" data-key="洗车">
+            <span class="item-name">洗车 <span class="point">(1.5分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+          <div class="item" data-key="转线">
+            <span class="item-name">转线 <span class="point">(1分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+        </div>
+        <div class="row row-2">
+          <div class="item" data-key="巡库">
+            <span class="item-name">巡库 <span class="point">(1分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+          <div class="item" data-key="检车">
+            <span class="item-name">检车 <span class="point">(1分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+          <div class="item" data-key="平板">
+            <span class="item-name">平板 <span class="point">(0.5分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+        </div>
+        <div class="row row-3">
+          <div class="item" data-key="调车">
+            <span class="item-name">调车 <span class="point">(2分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+          <div class="item" data-key="段内动车">
+            <span class="item-name">段内动车 <span class="point">(1分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+          <div class="item" data-key="正线">
+            <span class="item-name">正线 <span class="point">(5分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+        </div>
+        <div class="row row-4">
+          <div class="item" data-key="内燃从月检">
+            <span class="item-name">内燃从月检 <span class="point">(3分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+          <div class="item" data-key="平板车月检">
+            <span class="item-name">平板车月检 <span class="point">(2分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="save-area">
+      <div class="save-btn-wrap">
+        <button class="btn-save" id="btnSave"><span class="icon">💾</span> 保存</button>
+        <span class="btn-reset" id="btnReset" title="归零">↺</span>
+        <div class="save-total">
+          <span class="st-label">今日</span>
+          <span class="st-score" id="saveTotal">0</span>
+          <span class="st-unit">分</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <button id="navToday" class="active"><span class="nav-icon">📋</span><span>今日</span></button>
+    <button id="navHistory"><span class="nav-icon">📅</span><span>历史</span></button>
+  </div>
+
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal-content">
+      <div class="modal-header"><h2>历史记录</h2><button class="modal-close" id="closeModal">✕</button></div>
+      <div id="monthSummary" class="month-summary"></div>
+      <div id="historyListView">
+        <div class="history-empty" id="historyEmpty">暂无记录</div>
+        <ul class="history-list" id="historyList"></ul>
+        <div class="clear-area"><button class="clear-btn" id="clearAllBtn">清空所有数据</button></div>
+      </div>
+      <div class="detail-view" id="detailView">
+        <button class="back-btn" id="detailBack">◀ 返回列表</button>
+        <div class="detail-date" id="detailDate"></div>
+        <ul class="detail-items" id="detailItems"></ul>
+        <div class="detail-total"><span>合计</span><span class="dt-value" id="detailTotal">0 分</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const ITEMS = [
+    { key:'转线', point:1 }, { key:'洗车', point:1.5 },
+    { key:'巡库', point:1 }, { key:'检车', point:1 }, { key:'平板', point:0.5 },
+    { key:'调车', point:2 }, { key:'段内动车', point:1 }, { key:'正线', point:5 },
+    { key:'内燃从月检', point:3 }, { key:'平板车月检', point:2 },
+  ];
+  const W = ['日','一','二','三','四','五','六'];
+  const SK = 'workload_records_v3';
+  let D = new Date(); D.setHours(0,0,0,0);
+
+  function fmt(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function fcn(d){ return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日'; }
+  function wd(d){ return '周'+W[d.getDay()]; }
+  function td(d){ const n=new Date(); return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate(); }
+  function la(){ try{ return JSON.parse(localStorage.getItem(SK))||{}; }catch{ return {}; } }
+  function sa(d){ localStorage.setItem(SK,JSON.stringify(d)); }
+  function ld(d){ return la()[d]||{}; }
+  function sd(d,o){ const a=la(); a[d]=o; sa(a); }
+
+  function calcDayScore(dayData){
+    let t=0; ITEMS.forEach(i=>{ t+=(dayData[i.key]||0)*i.point; }); return t;
+  }
+  function ct(){
+    let t=0; ITEMS.forEach(i=>{ const e=document.querySelector(`[data-key="${i.key}"] input`); t+=(parseFloat(e?.value)||0)*i.point; }); return t;
+  }
+
+  function rd(){
+    document.getElementById('dateMain').textContent=fcn(D);
+    document.getElementById('dateSub').textContent=wd(D)+(td(D)?' · 今天':'');
+    document.getElementById('btnToday').style.display=td(D)?'none':'block';
+  }
+  function rdata(){
+    const ds=fmt(D), dd=ld(ds);
+    ITEMS.forEach(i=>{
+      const q=dd[i.key]||0, s=q*i.point;
+      const el=document.querySelector(`[data-key="${i.key}"] input`);
+      const se=document.querySelector(`[data-key="${i.key}"] [data-score]`);
+      if(el){ el.value=q>0?q:''; el.classList.toggle('has-value',q>0); }
+      if(se){ se.textContent=s.toFixed(1); se.classList.toggle('zero',s===0); }
+    });
+    document.getElementById('saveTotal').textContent=ct().toFixed(1);
+  }
+
+  function doSave(){
+    const ds=fmt(D), dd={};
+    ITEMS.forEach(i=>{ const e=document.querySelector(`[data-key="${i.key}"] input`); dd[i.key]=parseFloat(e?.value)||0; });
+    sd(ds,dd); rdata(); showToast('已保存');
+  }
+
+  function gt(d){ D=new Date(d); D.setHours(0,0,0,0); rd(); rdata(); }
+  function go(){ D=new Date(); D.setHours(0,0,0,0); rd(); rdata(); }
+  function pd(){ const d=new Date(D); d.setDate(d.getDate()-1); gt(d); }
+  function nd(){ const d=new Date(D); d.setDate(d.getDate()+1); gt(d); }
+
+  // ===== Monthly summary =====
+  function buildMonthlySummary(){
+    const all=la();
+    const monthTotals={};
+    Object.keys(all).forEach(ds=>{
+      const m=ds.substring(0,7);
+      monthTotals[m]=(monthTotals[m]||0)+calcDayScore(all[ds]);
+    });
+    const sorted=Object.keys(monthTotals).sort((a,b)=>b.localeCompare(a));
+    const container=document.getElementById('monthSummary');
+    container.innerHTML='';
+    if(sorted.length===0) return;
+    sorted.forEach(m=>{
+      const parts=m.split('-');
+      const label=+parts[0]+'年'+ +parts[1]+'月';
+      const div=document.createElement('div'); div.className='month-block';
+      div.innerHTML=`<span class="mb-label">${label}</span><span><span class="mb-total">${monthTotals[m].toFixed(1)}</span><span class="mb-unit">分</span></span>`;
+      container.appendChild(div);
+    });
+  }
+
+  function rh(){
+    const all=la(), sorted=Object.keys(all).sort((a,b)=>b.localeCompare(a));
+    const list=document.getElementById('historyList'), empty=document.getElementById('historyEmpty');
+    list.innerHTML='';
+    buildMonthlySummary();
+    if(sorted.length===0){ empty.style.display='block'; return; }
+    empty.style.display='none';
+    sorted.forEach(ds=>{
+      const dd=all[ds], p=ds.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]);
+      const t=calcDayScore(dd);
+      const li=document.createElement('li'); li.className='history-item';
+      li.innerHTML=`<span class="h-date">${+p[1]}月${+p[2]}日</span><span class="h-weekday">周${W[d.getDay()]}</span><span class="h-total">${t.toFixed(1)} 分</span><span class="h-action">›</span>`;
+      li.addEventListener('click',()=>sd2(ds)); list.appendChild(li);
+    });
+  }
+  function sd2(ds){
+    const dd=ld(ds), p=ds.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]);
+    document.getElementById('detailDate').textContent=`${+p[0]}年${+p[1]}月${+p[2]}日 周${W[d.getDay()]}`;
+    const list=document.getElementById('detailItems'); list.innerHTML=''; let t=0;
+    ITEMS.forEach(i=>{ const q=dd[i.key]||0, s=q*i.point; t+=s; const li=document.createElement('li'); li.innerHTML=`<span>${i.key} × ${q}</span><span class="d-score">${s.toFixed(1)} 分</span>`; list.appendChild(li); });
+    document.getElementById('detailTotal').textContent=t.toFixed(1)+' 分';
+    document.getElementById('historyListView').style.display='none'; document.getElementById('detailView').classList.add('show');
+  }
+  function shl(){ document.getElementById('detailView').classList.remove('show'); document.getElementById('historyListView').style.display='block'; rh(); }
+  function om(){ document.getElementById('historyModal').classList.add('show'); shl(); }
+  function cm(){ document.getElementById('historyModal').classList.remove('show'); }
+
+  let tt=null;
+  function showToast(m){ const e=document.getElementById('toast'); e.textContent=m; e.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>e.classList.remove('show'),1500); }
+
+  function init(){
+    rd(); rdata();
+    document.querySelectorAll('.item input').forEach(input=>{
+      input.addEventListener('input',function(){
+        const q=parseFloat(this.value)||0, row=this.closest('.item'), item=ITEMS.find(i=>i.key===row.dataset.key);
+        if(item){ const s=q*item.point; const se=row.querySelector('[data-score]'); se.textContent=s.toFixed(1); se.classList.toggle('zero',s===0); this.classList.toggle('has-value',q>0); }
+        document.getElementById('saveTotal').textContent=ct().toFixed(1);
+      });
+      input.addEventListener('blur',function(){ const ds=fmt(D), dd=ld(ds); dd[this.closest('.item').dataset.key]=parseFloat(this.value)||0; sd(ds,dd); });
+      input.addEventListener('keydown',function(e){ if(e.key==='Enter') this.blur(); });
+    });
+    document.getElementById('btnSave').addEventListener('click',doSave);
+    document.getElementById('btnReset').addEventListener('click',function(){
+      if(!confirm('归零今日所有项目？')) return;
+      document.querySelectorAll('.item input').forEach(inp=>{ inp.value=''; inp.classList.remove('has-value'); });
+      document.querySelectorAll('[data-score]').forEach(el=>{ el.textContent='0.0'; el.classList.add('zero'); });
+      document.getElementById('saveTotal').textContent='0.0';
+      doSave();
+      showToast('已归零');
+    });
+    document.getElementById('prevDay').addEventListener('click',pd);
+    document.getElementById('nextDay').addEventListener('click',nd);
+    document.getElementById('btnToday').addEventListener('click',go);
+    document.getElementById('navToday').addEventListener('click',()=>{ document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.remove('active')); document.getElementById('navToday').classList.add('active'); cm(); });
+    document.getElementById('navHistory').addEventListener('click',()=>{ document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.remove('active')); document.getElementById('navHistory').classList.add('active'); om(); });
+    document.getElementById('closeModal').addEventListener('click',cm);
+    document.getElementById('historyModal').addEventListener('click',function(e){ if(e.target===this) cm(); });
+    document.getElementById('detailBack').addEventListener('click',shl);
+    document.getElementById('clearAllBtn').addEventListener('click',function(){ if(confirm('确定要清空所有记录？')){ localStorage.removeItem(SK); shl(); rdata(); showToast('已清空'); } });
+
+    // 左右滑动切换日期
+    let tx=0;
+    document.addEventListener('touchstart',function(e){
+      if(e.target.closest('.item input')||e.target.closest('.modal-overlay')) return;
+      tx=e.touches[0].clientX;
+    },{passive:true});
+    document.addEventListener('touchend',function(e){
+      if(tx===0) return;
+      const dist=e.changedTouches[0].clientX-tx;
+      if(dist>50) pd();
+      else if(dist<-50) nd();
+      tx=0;
+    },{passive:true});
+  }
+  document.addEventListener('DOMContentLoaded',init);
+  if(document.readyState!=='loading') init();
+</script>
+</body>
+</html>
