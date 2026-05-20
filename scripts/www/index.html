@@ -53,7 +53,7 @@
   /* ===== Rows ===== */
   .rows {
     display: flex; flex-direction: column;
-    min-height: 456px;
+    min-height: 600px;
   }
   .row {
     display: flex; align-items: center;
@@ -121,14 +121,35 @@
   .row-4 .item-input-wrap input { height: 28px; font-size: 13px; max-width: 48px; margin: 0 auto; }
   .row-4 .item-score   { font-size: 10px; }
 
+  /* ===== 班次选择 ===== */
+  .shift-area {
+    display: flex; justify-content: center; padding: 8px 14px 6px;
+  }
+  .shift-options { display: flex; gap: 10px; }
+  .shift-btn {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    border: 2px solid #e4e6ea; color: #bbb; background: #fff;
+    transition: all 0.2s; user-select: none;
+  }
+  .shift-btn:active { transform: scale(0.92); }
+  .shift-btn.active {
+    border-color: #4a6cf7; color: #fff; background: #4a6cf7;
+    box-shadow: 0 2px 8px rgba(74,108,247,0.25);
+  }
+
   /* ===== Save Footer ===== */
   .save-area { padding: 10px; }
   .save-btn-wrap {
     background: #fff; border-radius: 12px;
     box-shadow: 0 1px 8px rgba(0,0,0,0.06);
     padding: 10px 14px; display: flex;
-    align-items: center; justify-content: space-between;
+    align-items: center;
   }
+  .sb-left, .sb-right { flex: 1; display: flex; align-items: center; }
+  .sb-left { justify-content: flex-start; }
+  .sb-right { justify-content: flex-end; }
   .btn-save {
     background: linear-gradient(135deg, #4a6cf7, #6c5ce7);
     color: #fff; border: none; padding: 9px 24px; border-radius: 22px;
@@ -217,7 +238,16 @@
   .history-item:active { background: #fafbfd; border-radius: 8px; }
   .history-item .h-date { font-size: 15px; font-weight: 500; color: #1a1a2e; flex: 0 0 100px; }
   .history-item .h-weekday { font-size: 12px; color: #aaa; flex: 0 0 44px; }
-  .history-item .h-total { font-size: 17px; font-weight: 700; color: #f7971e; margin-left: auto; }
+  .history-item .h-shift {
+    display: inline-flex; width: 24px; height: 24px; border-radius: 50%;
+    align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; margin-right: 4px; flex-shrink: 0;
+    background: #4a6cf7; color: #fff;
+  }
+  .history-item .h-shift.yellow { background: #f7971e; }
+  .history-item .h-shift.green  { background: #27ae60; }
+  .history-item .h-score-group { display: flex; align-items: center; gap: 0; margin-left: auto; }
+  .history-item .h-total { font-size: 17px; font-weight: 700; color: #f7971e; }
   .history-item .h-action { font-size: 12px; color: #4a6cf7; margin-left: 6px; }
   .history-empty { text-align: center; padding: 40px 0; color: #bbb; font-size: 14px; }
 
@@ -321,15 +351,24 @@
       </div>
     </div>
 
+    <!-- 班次选择 -->
+    <div class="shift-area">
+      <div class="shift-options">
+        <span class="shift-btn" data-shift="白">白</span>
+        <span class="shift-btn" data-shift="夜">夜</span>
+        <span class="shift-btn" data-shift="替">替</span>
+      </div>
+    </div>
+
     <div class="save-area">
       <div class="save-btn-wrap">
-        <button class="btn-save" id="btnSave"><span class="icon">💾</span> 保存</button>
+        <div class="sb-left"><button class="btn-save" id="btnSave"><span class="icon">💾</span> 保存</button></div>
         <span class="btn-reset" id="btnReset" title="归零">↺</span>
-        <div class="save-total">
+        <div class="sb-right"><div class="save-total">
           <span class="st-label">今日</span>
           <span class="st-score" id="saveTotal">0</span>
           <span class="st-unit">分</span>
-        </div>
+        </div></div>
       </div>
     </div>
   </div>
@@ -400,12 +439,19 @@
       if(el){ el.value=q>0?q:''; el.classList.toggle('has-value',q>0); }
       if(se){ se.textContent=s.toFixed(1); se.classList.toggle('zero',s===0); }
     });
+    // 恢复班次
+    const shift=dd._shift||'';
+    document.querySelectorAll('.shift-btn').forEach(b=>{
+      b.classList.toggle('active',b.dataset.shift===shift);
+    });
     document.getElementById('saveTotal').textContent=ct().toFixed(1);
   }
 
   function doSave(){
     const ds=fmt(D), dd={};
     ITEMS.forEach(i=>{ const e=document.querySelector(`[data-key="${i.key}"] input`); dd[i.key]=parseFloat(e?.value)||0; });
+    const activeShift=document.querySelector('.shift-btn.active');
+    if(activeShift) dd._shift=activeShift.dataset.shift;
     sd(ds,dd); rdata(); showToast('已保存');
   }
 
@@ -445,14 +491,20 @@
     sorted.forEach(ds=>{
       const dd=all[ds], p=ds.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]);
       const t=calcDayScore(dd);
+      // 跳过零分且无班次的日子
+      if(t===0) return;
+      const shift=dd._shift||'';
+      const shiftHtml=shift?`<span class="h-shift">${shift}</span>`:'';
+      const scoreGroupHtml=`<span class="h-score-group">${shiftHtml}<span class="h-total">${t.toFixed(1)} 分</span></span>`;
       const li=document.createElement('li'); li.className='history-item';
-      li.innerHTML=`<span class="h-date">${+p[1]}月${+p[2]}日</span><span class="h-weekday">周${W[d.getDay()]}</span><span class="h-total">${t.toFixed(1)} 分</span><span class="h-action">›</span>`;
+      li.innerHTML=`<span class="h-date">${+p[1]}月${+p[2]}日</span><span class="h-weekday">周${W[d.getDay()]}</span>${scoreGroupHtml}<span class="h-action">›</span>`;
       li.addEventListener('click',()=>sd2(ds)); list.appendChild(li);
     });
   }
   function sd2(ds){
     const dd=ld(ds), p=ds.split('-'), d=new Date(+p[0],+p[1]-1,+p[2]);
-    document.getElementById('detailDate').textContent=`${+p[0]}年${+p[1]}月${+p[2]}日 周${W[d.getDay()]}`;
+    const shift=dd._shift||'';
+    document.getElementById('detailDate').textContent=`${+p[0]}年${+p[1]}月${+p[2]}日 周${W[d.getDay()]}${shift?' · '+shift+'班':''}`;
     const list=document.getElementById('detailItems'); list.innerHTML=''; let t=0;
     ITEMS.forEach(i=>{ const q=dd[i.key]||0, s=q*i.point; t+=s; const li=document.createElement('li'); li.innerHTML=`<span>${i.key} × ${q}</span><span class="d-score">${s.toFixed(1)} 分</span>`; list.appendChild(li); });
     document.getElementById('detailTotal').textContent=t.toFixed(1)+' 分';
@@ -473,7 +525,7 @@
         if(item){ const s=q*item.point; const se=row.querySelector('[data-score]'); se.textContent=s.toFixed(1); se.classList.toggle('zero',s===0); this.classList.toggle('has-value',q>0); }
         document.getElementById('saveTotal').textContent=ct().toFixed(1);
       });
-      input.addEventListener('blur',function(){ const ds=fmt(D), dd=ld(ds); dd[this.closest('.item').dataset.key]=parseFloat(this.value)||0; sd(ds,dd); });
+      input.addEventListener('blur',function(){ const ds=fmt(D), dd=ld(ds); dd[this.closest('.item').dataset.key]=parseFloat(this.value)||0; const as=document.querySelector('.shift-btn.active'); if(as) dd._shift=as.dataset.shift; sd(ds,dd); });
       input.addEventListener('keydown',function(e){ if(e.key==='Enter') this.blur(); });
     });
     document.getElementById('btnSave').addEventListener('click',doSave);
@@ -482,8 +534,23 @@
       document.querySelectorAll('.item input').forEach(inp=>{ inp.value=''; inp.classList.remove('has-value'); });
       document.querySelectorAll('[data-score]').forEach(el=>{ el.textContent='0.0'; el.classList.add('zero'); });
       document.getElementById('saveTotal').textContent='0.0';
+      document.querySelectorAll('.shift-btn').forEach(b=>b.classList.remove('active'));
       doSave();
       showToast('已归零');
+    });
+    // 班次选择（单选）
+    document.querySelectorAll('.shift-btn').forEach(btn=>{
+      btn.addEventListener('click',function(){
+        const isActive=this.classList.contains('active');
+        document.querySelectorAll('.shift-btn').forEach(b=>b.classList.remove('active'));
+        if(!isActive) this.classList.add('active');
+        // 自动保存班次
+        const ds=fmt(D), dd=ld(ds);
+        const activeShift=document.querySelector('.shift-btn.active');
+        if(activeShift) dd._shift=activeShift.dataset.shift;
+        else delete dd._shift;
+        sd(ds,dd);
+      });
     });
     document.getElementById('prevDay').addEventListener('click',pd);
     document.getElementById('nextDay').addEventListener('click',nd);
