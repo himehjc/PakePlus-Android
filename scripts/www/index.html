@@ -330,8 +330,8 @@
             <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
             <span class="item-score zero" data-score>0</span>
           </div>
-          <div class="item" data-key="正线">
-            <span class="item-name">正线 <span class="point">(5分)</span></span>
+          <div class="item" data-key="段内B1">
+            <span class="item-name">段内B1 <span class="point">(3分)</span></span>
             <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
             <span class="item-score zero" data-score>0</span>
           </div>
@@ -339,6 +339,11 @@
         <div class="row row-4">
           <div class="item" data-key="内燃车月检">
             <span class="item-name">内燃车月检 <span class="point">(3分)</span></span>
+            <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+            <span class="item-score zero" data-score>0</span>
+          </div>
+          <div class="item" data-key="正线">
+            <span class="item-name">正线 <span class="point">(5分)</span></span>
             <div class="item-input-wrap"><input type="number" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
             <span class="item-score zero" data-score>0</span>
           </div>
@@ -402,8 +407,8 @@
   const ITEMS = [
     { key:'转线', point:1 }, { key:'洗车', point:1.5 },
     { key:'巡库', point:1 }, { key:'检车', point:1 }, { key:'平板', point:0.5 },
-    { key:'调车', point:2 }, { key:'段内动车', point:1 }, { key:'正线', point:5 },
-    { key:'内燃车月检', point:3 }, { key:'平板车月检', point:2 },
+    { key:'调车', point:2 }, { key:'段内动车', point:1 }, { key:'段内B1', point:3 },
+    { key:'内燃车月检', point:3 }, { key:'正线', point:5 }, { key:'平板车月检', point:2 },
   ];
   const W = ['日','一','二','三','四','五','六'];
   const SK = 'workload_records_v3';
